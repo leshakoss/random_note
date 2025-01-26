@@ -25,7 +25,7 @@ type Note = [(typeof ALL_NOTES)[number], /** octave */ number]
 
 function getFreq([note, octave]: Note): number {
   const index = ALL_NOTES.indexOf(note)
-  return FREQ[index] * Math.pow(2, octave - 4)
+  return FREQ[index] * Math.pow(2, octave - 3)
 }
 
 function randomNewIndex(currentIndex: number, length: number): number {
@@ -33,31 +33,58 @@ function randomNewIndex(currentIndex: number, length: number): number {
   return randomIndex >= currentIndex ? randomIndex + 1 : randomIndex
 }
 
-const NOTE_TIMEOUT = 2000
+const NOTE_TIMEOUT = 1500
 const TIMEOUT = 3000
 
-const eStringInventory: Note[] = [
+const E_STRING_INVENTORY: Note[] = [
+  ['E', 1],
+  ['F', 1],
+  ['G', 1],
+  ['A', 1],
+  ['B', 1],
+  ['C', 2],
+  ['D', 2],
+]
+const A_STRING_INVENTORY: Note[] = [
+  ['A', 1],
+  ['B', 1],
+  ['C', 2],
+  ['D', 2],
+  ['E', 2],
+  ['F', 2],
+  ['G', 2],
+]
+const D_STRING_INVENTORY: Note[] = [
+  ['D', 2],
   ['E', 2],
   ['F', 2],
   ['G', 2],
   ['A', 2],
   ['B', 2],
   ['C', 3],
+]
+const G_STRING_INVENTORY: Note[] = [
+  ['G', 2],
+  ['A', 2],
+  ['B', 2],
+  ['C', 3],
   ['D', 3],
+  ['E', 3],
+  ['F', 3],
 ]
+const mergeInventories = (...inventories: Note[][]) => {
+  let newInventory: Note[] = [...inventories[0]]
+  for (const inventory of inventories.slice(1)) {
+    for (const note of inventory) {
+      if (!newInventory.some((n) => n[0] === note[0] && n[1] === note[1])) {
+        newInventory.push(note)
+      }
+    }
+  }
+  return newInventory
+}
 
-const OCTAVE_SUFFICES = [
-  ',,,,,',
-  ',,,,',
-  ',,,',
-  ',,',
-  ',',
-  '',
-  '',
-  "'",
-  "''",
-  "'''",
-]
+const OCTAVE_SUFFICES = [',,,,', ',,,', ',,', ',', '', '', "'", "''", "'''"]
 
 const getAbcNote = ([note, octave]: Note) => {
   return `${octave > 4 ? note : note.toLowerCase()}${
@@ -78,7 +105,16 @@ ${getAbcNote(note)}2
 const App = () => {
   const [isRunning, setIsRunning] = useState(false)
 
-  const inventory = useMemo(() => eStringInventory, [])
+  const inventory = useMemo(
+    () =>
+      mergeInventories(
+        E_STRING_INVENTORY,
+        // A_STRING_INVENTORY,
+        // D_STRING_INVENTORY,
+        // G_STRING_INVENTORY,
+      ),
+    [],
+  )
 
   // Random note
   const [noteIndex, setNoteIndex] = useState<number>(() =>
