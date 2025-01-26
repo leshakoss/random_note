@@ -1,35 +1,88 @@
-import { render } from 'preact'
+import { ComponentChildren, render } from 'preact'
 import { useEffect, useMemo, useRef, useState } from 'preact/hooks'
 import { renderAbc } from 'abcjs'
 
-const INVENTORY = ['C', 'D', 'E', 'F', 'G', 'A', 'B'] as const
-const FREQ: { [K in (typeof INVENTORY)[number]]: number } = {
-  C: 261.63,
-  D: 293.66,
-  E: 329.63,
-  F: 349.23,
-  G: 392.0,
-  A: 440.0 / 2,
-  B: 493.88 / 2,
-}
-const TIMEOUT = 4000
+const ALL_NOTES = [
+  'C',
+  'Db',
+  'D',
+  'Eb',
+  'E',
+  'F',
+  'Gb',
+  'G',
+  'Ab',
+  'A',
+  'Bb',
+  'B',
+] as const
+const FREQ = [
+  261.63, 277.18, 293.66, 311.13, 329.63, 349.23, 369.99, 392.0, 415.3, 440.0,
+  466.16, 493.88,
+]
 
-const getAbc = (note: (typeof INVENTORY)[number]) => {
+type Note = [(typeof ALL_NOTES)[number], /** octave */ number]
+
+function getFreq([note, octave]: Note): number {
+  const index = ALL_NOTES.indexOf(note)
+  return FREQ[index] * Math.pow(2, octave - 4)
+}
+
+function randomNewIndex(currentIndex: number, length: number): number {
+  const randomIndex = Math.floor(Math.random() * (length - 1))
+  return randomIndex >= currentIndex ? randomIndex + 1 : randomIndex
+}
+
+const NOTE_TIMEOUT = 2000
+const TIMEOUT = 3000
+
+const eStringInventory: Note[] = [
+  ['E', 2],
+  ['F', 2],
+  ['G', 2],
+  ['A', 2],
+  ['B', 2],
+  ['C', 3],
+  ['D', 3],
+]
+
+const OCTAVE_SUFFICES = [
+  ',,,,,',
+  ',,,,',
+  ',,,',
+  ',,',
+  ',',
+  '',
+  '',
+  "'",
+  "''",
+  "'''",
+]
+
+const getAbcNote = ([note, octave]: Note) => {
+  return `${octave > 4 ? note : note.toLowerCase()}${
+    OCTAVE_SUFFICES[octave] ?? ''
+  }`
+}
+
+const getAbc = (note: Note) => {
   return `X:1
 L:1/8
 K:C bass
 %%scale 6
 %%staffwidth 250
-${note},2`
+${getAbcNote(note)}2
+  `
 }
-// %%topmargin 300
 
 const App = () => {
   const [isRunning, setIsRunning] = useState(false)
 
+  const inventory = useMemo(() => eStringInventory, [])
+
   // Random note
-  const [note, setNote] = useState(
-    () => INVENTORY[Math.floor(Math.random() * INVENTORY.length)],
+  const [noteIndex, setNoteIndex] = useState<number>(() =>
+    Math.floor(Math.random() * inventory.length),
   )
 
   useEffect(() => {
@@ -47,18 +100,13 @@ const App = () => {
   useEffect(() => {
     if (isRunning) {
       const interval = setInterval(() => {
-        setNote((currentNote) => {
-          const nextNoteInventory = INVENTORY.filter((n) => n !== currentNote)
-          const nextNote =
-            nextNoteInventory[
-              Math.floor(Math.random() * nextNoteInventory.length)
-            ]
-          return nextNote
-        })
+        setNoteIndex((currentNoteIndex) =>
+          randomNewIndex(currentNoteIndex, inventory.length),
+        )
       }, TIMEOUT)
       return () => clearInterval(interval)
     }
-  }, [isRunning, setNote])
+  }, [isRunning, setNoteIndex])
 
   const audioContext = useMemo(() => new AudioContext(), [])
 
@@ -67,17 +115,19 @@ const App = () => {
     if (isRunning) {
       const oscillator = audioContext.createOscillator()
       oscillator.connect(audioContext.destination)
-      oscillator.frequency.value = FREQ[note]
+      oscillator.frequency.value = getFreq(inventory[noteIndex])
       oscillator.start()
       return () => oscillator.stop()
     }
-  }, [isRunning, note])
+  }, [isRunning, noteIndex])
 
   // Ref to abcjs note node
   const abcRef = useRef<HTMLDivElement>(null)
   useEffect(() => {
     if (abcRef.current) {
-      renderAbc(abcRef.current, getAbc(note))
+      renderAbc(abcRef.current, getAbc(inventory[noteIndex]))
+
+      // Align everything
       const topLine = abcRef.current.getElementsByClassName('abcjs-top-line')[0]
 
       const offset =
@@ -89,7 +139,7 @@ const App = () => {
       // Move abcRef to the center of the screen
       abcRef.current.style.marginTop = `${window.innerHeight / 2 - staffHeight / 2 - offset}px`
     }
-  }, [note])
+  }, [noteIndex])
 
   return (
     <div
@@ -110,7 +160,7 @@ const App = () => {
       >
         <div ref={abcRef} />
       </div>
-      {!isRunning && (
+      {
         <div
           style={{
             color: 'white',
@@ -120,11 +170,38 @@ const App = () => {
             marginBottom: 50,
           }}
         >
-          {note}
+          <Note isRunning={isRunning} key={noteIndex}>
+            {inventory[noteIndex][0]}
+          </Note>
         </div>
-      )}
+      }
     </div>
   )
+}
+
+const Note = ({
+  isRunning,
+  children,
+}: {
+  isRunning: boolean
+  children: ComponentChildren
+}) => {
+  const [shouldDisplay, setShouldDisplay] = useState(false)
+  useEffect(() => {
+    if (!isRunning) {
+      setShouldDisplay(true)
+    }
+  }, [isRunning])
+
+  useEffect(() => {
+    const timeout = setTimeout(() => {
+      setShouldDisplay(true)
+    }, NOTE_TIMEOUT)
+
+    return () => clearTimeout(timeout)
+  }, [])
+
+  return <>{shouldDisplay ? children : null}</>
 }
 
 render(<App />, document.body)
