@@ -1,9 +1,11 @@
 {
   "name": "random_note",
   "version": "1.0.0",
+  "config": {
+    "port": 1338
+  },
   "scripts": {
-    "build": "rm -rf ./dist && mkdir dist && cp assets/* dist/ && esbuild src/index.tsx --bundle --outfile=dist/out.js --watch",
-    "server": "http-server dist/ -p 1338 -c-1"
+    "start": "esbuild src/index.tsx --bundle --outfile=web/out.js --loader:.wgsl=text --watch --serve=$npm_package_config_port --servedir=web"
   },
   "author": "Lesha Koss <lesha@hey.com>",
   "license": "UNLICENSED",
